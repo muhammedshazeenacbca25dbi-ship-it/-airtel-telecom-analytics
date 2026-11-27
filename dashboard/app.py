@@ -26,6 +26,54 @@ DB_PATH = Path(
     )
 )
 
+
+def prepare_database() -> None:
+    if DB_PATH.exists():
+        return
+
+    csv_dir = ROOT / "data" / "raw"
+    required_csvs = ("usage_daily.csv", "customers.csv", "plans.csv")
+    if not all((csv_dir / name).exists() for name in required_csvs):
+        return
+
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        for name in required_csvs:
+            pd.read_csv(csv_dir / name).to_sql(
+                name.removesuffix(".csv"),
+                conn,
+                if_exists="replace",
+                index=False,
+            )
+        conn.execute(
+            """
+            CREATE VIEW v_plans_clean AS
+            SELECT
+                plan_id,
+                plan_name,
+                plan_type,
+                price_inr,
+                validity_days,
+                data_quota,
+                CASE
+                    WHEN INSTR(data_quota, '/day') > 0 THEN 'per day'
+                    WHEN INSTR(data_quota, '/month') > 0 THEN 'per month'
+                END AS quota_basis,
+                CAST(SUBSTR(data_quota, 1, INSTR(data_quota, ' ') - 1) AS REAL) AS quota_gb,
+                CASE
+                    WHEN INSTR(data_quota, '/day') > 0
+                    THEN CAST(SUBSTR(data_quota, 1, INSTR(data_quota, ' ') - 1) AS REAL) * 30
+                    ELSE CAST(SUBSTR(data_quota, 1, INSTR(data_quota, ' ') - 1) AS REAL)
+                END AS monthly_gb,
+                ott_benefit,
+                is_5g
+            FROM plans
+            """
+        )
+
+
+prepare_database()
+
 BASE_CTE = """
 base AS (
     SELECT u.customer_id AS sub_id,

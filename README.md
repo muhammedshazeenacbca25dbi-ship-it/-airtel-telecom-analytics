@@ -12,5 +12,16 @@ Six tables. Row counts: filled in at 0.2 G.
 ## Setup
 Written in Step 8.
 
+## Streamlit deployment
+
+Use `dashboard/app.py` as the Streamlit entry point. The repository includes
+the source CSV files needed by the dashboard; on first start, the app builds
+the local SQLite database automatically. Install dependencies with:
+
+```bash
+pip install -r requirements.txt
+streamlit run dashboard/app.py
+```
+
 ## Progress
 - Step 0: environment, repository and data receipt
